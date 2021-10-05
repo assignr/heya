@@ -10,31 +10,36 @@ module Heya
 
     scope :with_steps, -> {
       joins(
-        %(INNER JOIN "heya_steps" ON "heya_steps".gid = "heya_campaign_memberships".step_gid)
+        %(INNER JOIN `heya_steps` ON `heya_steps`.gid = `heya_campaign_memberships`.step_gid)
       )
     }
 
     scope :active, -> {
       priority_gids = Heya.config.campaigns.priority.map { |c| (c.is_a?(String) ? c.constantize : c).gid }
+      priority_gids << 'NullValue'
+      priority_array = priority_gids.select{|g| "'#{g}'"}.join(",")
       where(<<~SQL, priority_gids: priority_gids)
-        "heya_campaign_memberships".concurrent = TRUE
-        OR "heya_campaign_memberships"."campaign_gid" IN (
-          SELECT
-            "active_membership"."campaign_gid"
-          FROM
-            "heya_campaign_memberships" as "active_membership"
-          WHERE
-            "active_membership"."concurrent" = FALSE
-            AND
-            (
-              "active_membership".user_type = "heya_campaign_memberships".user_type
-              AND
-              "active_membership".user_id = "heya_campaign_memberships".user_id
-            )
-          ORDER BY
-            array_position(ARRAY[:priority_gids], "active_membership".campaign_gid::text) ASC,
-            "active_membership".created_at ASC
-          LIMIT 1
+        (
+          `heya_campaign_memberships`.concurrent = TRUE
+          OR (`heya_campaign_memberships`.campaign_gid) in (
+            select campaign_gid from (
+              SELECT `active_membership`.campaign_gid,
+              ROW_NUMBER() OVER(
+                PARTITION BY
+                  `active_membership`.campaign_gid
+                ORDER BY
+                  case when `active_membership`.campaign_gid in (:priority_gids)
+                  then 0 else 1 end,
+                  `active_membership`.created_at
+              ) AS row_no
+              FROM
+                `heya_campaign_memberships` as `active_membership`
+              WHERE `active_membership`.concurrent = FALSE
+              AND `active_membership`.user_type = `heya_campaign_memberships`.user_type
+              AND `active_membership`.user_id = `heya_campaign_memberships`.user_id
+            ) as t
+            where t.row_no = 1
+          )
         )
       SQL
     }
@@ -44,7 +49,7 @@ module Heya
         .active
         .order(
           Arel.sql(
-            %("heya_campaign_memberships".last_sent_at + make_interval(secs := "heya_steps".wait) DESC)
+            %(date_add(`heya_campaign_memberships`.last_sent_at, interval `heya_steps`.wait second) DESC)
           )
         )
     }
@@ -52,13 +57,13 @@ module Heya
     scope :to_process, ->(now: Time.now, user: nil) {
       upcoming
         .where(<<~SQL, now: now.utc, user_type: user&.class&.base_class&.name, user_id: user&.id)
-          ("heya_campaign_memberships".last_sent_at <= (TIMESTAMP :now - make_interval(secs := "heya_steps".wait)))
+          `heya_campaign_memberships`.last_sent_at <= date_add(:now, interval `heya_steps`.wait second)
           AND (
-            (:user_type IS NULL OR :user_id IS NULL)
+            :user_type IS NULL
+            OR :user_id IS NULL
             OR (
-              "heya_campaign_memberships".user_type = :user_type
-              AND
-              "heya_campaign_memberships".user_id = :user_id
+              `heya_campaign_memberships`.user_type = :user_type
+              AND `heya_campaign_memberships`.user_id = :user_id
             )
           )
         SQL

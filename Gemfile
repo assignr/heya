@@ -28,3 +28,4 @@ gem "timecop", "~> 0.9.2"
 gem "pry", "~> 0.14.0"
 
 gem "pry-rails", "~> 0.3.9"
+gem "mysql2"
