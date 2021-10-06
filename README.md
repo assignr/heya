@@ -7,6 +7,24 @@
 
 Heya is a campaign mailer for Rails. Think of it like ActionMailer, but for timed email sequences. It can also perform other actions like sending a text message.
 
+## Fork
+
+This is a [fork](https://github.com/assignr) internally used by [Assignr](https://www.assignr.com) that adapts Heya:
+
+* This fork is intended for use with MySQL 8.0 and [Postmark](https://postmarkapp.com/).
+* Can specify an email layout and a Postmark message stream in the step configuration
+
+```ruby
+class AppLaunchCampaign < ApplicationCampaign
+  step :announcement,
+    wait: 0,
+    subject: "The Assignr Mobile App is Here!",
+    message_stream: 'announcements',
+    from: 'Assignr <announcements@assignr.com>',
+    layout: 'campaign_mailer'
+end
+```
+
 ## Getting started
 Getting started with Heya is easy:
 
