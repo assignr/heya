@@ -49,7 +49,7 @@ module Heya
         .active
         .order(
           Arel.sql(
-            %(date_add(`heya_campaign_memberships`.last_sent_at, interval `heya_steps`.wait second) DESC)
+            %(date_add(`heya_campaign_memberships`.last_sent_at, interval `heya_steps`.wait day) DESC)
           )
         )
     }
@@ -57,7 +57,7 @@ module Heya
     scope :to_process, ->(now: Time.now, user: nil) {
       upcoming
         .where(<<~SQL, now: now.utc, user_type: user&.class&.base_class&.name, user_id: user&.id)
-          `heya_campaign_memberships`.last_sent_at <= date_add(:now, interval `heya_steps`.wait second)
+          `heya_campaign_memberships`.last_sent_at <= date_sub(:now, interval `heya_steps`.wait second)
           AND (
             :user_type IS NULL
             OR :user_id IS NULL
