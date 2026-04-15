@@ -19,7 +19,7 @@ gem "simplecov", require: false, group: :test
 gem "timecop", "~> 0.9.2"
 gem "pry", "~> 0.14.0"
 gem "pry-rails", "~> 0.3.9"
-gem "rails", "~> 7.2.0"
+gem "rails", "~> 8.0.0"
 
 group :development, :test do
   gem "standard", "~> 1.37.0"
